@@ -1,1 +1,1 @@
-def hello := "world"
+import LeanPinecone.Basic
