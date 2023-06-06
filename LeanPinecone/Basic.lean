@@ -37,6 +37,7 @@ structure Query where
   includeValues : Bool := false
   includeMetadata : Bool := true
   vector : Array JsonNumber
+  filter : Option Json
 
 instance : ToJson Query where
   toJson e := Json.mkObj [
@@ -44,7 +45,8 @@ instance : ToJson Query where
     ("topK", e.topK),
     ("includeValues", e.includeValues),
     ("includeMetadata", e.includeMetadata),
-    ("vector", toJson e.vector)
+    ("vector", toJson e.vector),
+    ("filter", toJson e.filter)
   ]
 
 instance : FromJson Query where
@@ -54,12 +56,14 @@ instance : FromJson Query where
     let .ok includeValues := json.getObjValAs? Bool "includeValues" | .error s!"Failed to parse {json}"
     let .ok includeMetadata := json.getObjValAs? Bool "includeMetadata" | .error s!"Failed to parse {json}"
     let .ok vector := json.getObjValAs? (Array JsonNumber) "vector" | .error s!"Failed to parse {json}"
+    let .ok filter := json.getObjValAs? (Option Json) "filter" | .error s!"Failed to parse {json}"
     return { 
       nmspace := nmspace, 
       topK := topK,
       includeValues := includeValues,
       includeMetadata := includeMetadata,
       vector := vector
+      filter := filter
     }
 
 structure Match where
@@ -72,7 +76,6 @@ deriving ToJson, FromJson
 structure QueryResponse where
   nmspace : String
   mtches : Array Match
---deriving ToJson, FromJson
 
 instance : ToJson QueryResponse where
   toJson q := Json.mkObj [
