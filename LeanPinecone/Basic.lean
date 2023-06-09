@@ -12,7 +12,8 @@ deriving ToJson, FromJson
 
 structure Config where
   apiKey : String
-  projectId : String
+  environment : String
+  project : String
   index : String
 deriving ToJson, FromJson
 
@@ -32,12 +33,12 @@ structure Error where
 deriving ToJson, FromJson
 
 structure Query where
-  nmspace : Option String := none
   topK : Nat
+  vector : Array JsonNumber
+  nmspace : Option String := none
   includeValues : Bool := false
   includeMetadata : Bool := true
-  vector : Array JsonNumber
-  filter : Option Json
+  filter : Option Json := none
 
 instance : ToJson Query where
   toJson e := Json.mkObj [
@@ -98,7 +99,7 @@ abbrev PineconeM := ReaderT Pinecone.Config IO
 namespace PineconeM
 
 def baseUrl : PineconeM String := do
-  return s!"{(← read).index}-{(← read).projectId}.pinecone.io"
+  return s!"{(← read).index}-{(← read).project}.svc.{(← read).environment}.pinecone.io"
 
 def upsertAux (data : Array Element) (nmspace : String) : 
     PineconeM (UInt32 × String × String) := do
@@ -184,8 +185,9 @@ def query (query : Query) : PineconeM QueryResponse := do
 
 def runWith {A : Type _} (m : PineconeM A) 
     (apiKey : Option String := none)
-    (projectId : Option String := none)
-    (index : Option String := none) : IO A := do
+    (project : Option String := none)
+    (index : Option String := none)
+    (environment : Option String := none) : IO A := do
   let apiKey ← show IO String from do 
     match apiKey with
       | some apiKey => return apiKey
@@ -193,12 +195,19 @@ def runWith {A : Type _} (m : PineconeM A)
         let some apiKey ← IO.getEnv "PINECONE_API_KEY" | 
           throw <| .userError "Pinecone API key not found in environment."
         return apiKey
-  let projectId ← show IO String from do 
-    match projectId with
+  let project ← show IO String from do 
+    match project with
       | some projectId => return projectId
       | none => 
         let some projectId ← IO.getEnv "PINECONE_PROJECT_ID" | 
           throw <| .userError "Pinecone project ID not found in environment."
+        return projectId
+  let environment ← show IO String from do 
+    match environment with
+      | some env => return env
+      | none => 
+        let some projectId ← IO.getEnv "PINECONE_ENVIRONMENT" | 
+          throw <| .userError "Pinecone environment not found in environment."
         return projectId
   let index ← show IO String from do
     match index with
@@ -207,7 +216,7 @@ def runWith {A : Type _} (m : PineconeM A)
         let some index ← IO.getEnv "PINECONE_INDEX" | 
           throw <| .userError "Pinecone index not found in environment."
         return index
-  ReaderT.run m { apiKey := apiKey, projectId := projectId, index := index }
+  ReaderT.run m { apiKey := apiKey, project := project, index := index, environment := environment }
 
 def run {A : Type _} (m : PineconeM A) : IO A := runWith m
 
